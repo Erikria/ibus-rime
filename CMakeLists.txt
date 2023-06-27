@@ -64,5 +64,5 @@ configure_file(
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/rime.xml" DESTINATION "${CMAKE_INSTALL_DATADIR}/ibus/component")
 install(TARGETS ibus-engine-rime DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/ibus-rime")
-install(DIRECTORY icons DESTINATION "${CMAKE_INSTALL_DATADIR}/ibus-rime" FILES_MATCHING PATTERN "*.png")
+install(DIRECTORY icons DESTINATION "${CMAKE_INSTALL_DATADIR}/ibus-rime" FILES_MATCHING PATTERN "*.svg")
 install(FILES ibus_rime.yaml DESTINATION "${RIME_DATA_DIR}")

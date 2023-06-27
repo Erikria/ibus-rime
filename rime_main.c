@@ -1,6 +1,7 @@
 // ibus-rime program entry
 
 #include "rime_config.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -22,11 +23,24 @@
 
 RimeApi *rime_api = NULL;
 
-static const char* get_ibus_rime_user_data_dir(char *path) {
+static const char* get_ibus_rime_user_data_dir() {
   const char* home = getenv("HOME");
-  strcpy(path, home);
-  strcat(path, "/.config/ibus/rime");
-  return path;
+  const char* xdg_config_home = getenv("XDG_CONFIG_HOME");
+
+  int max = 512;
+
+  char path[max];
+  char* final_str = "ibus/rime";
+
+  if (xdg_config_home != NULL) {
+    snprintf(path, max, "%s/%s", xdg_config_home, final_str);
+  } else {
+    snprintf(path, max, "%s/%s/%s", home, ".config", final_str);
+  }
+
+  const char* data_dir = path;
+
+  return data_dir;
 }
 
 static void show_message(const char* summary, const char* details) {
@@ -41,15 +55,15 @@ static void notification_handler(void* context_object,
                                  const char* message_value) {
   if (!strcmp(message_type, "deploy")) {
     if (!strcmp(message_value, "start")) {
-      show_message(_("Rime is under maintenance ..."), NULL);
+      show_message(_("[Rime] Loading..."), NULL);
     }
     else if (!strcmp(message_value, "success")) {
-      show_message(_("Rime is ready."), NULL);
+      show_message(_("[Rime] Finished!"), NULL);
       ibus_rime_load_settings();
     }
     else if (!strcmp(message_value, "failure")) {
-      show_message(_("Rime has encountered an error."),
-                   _("See /tmp/rime.ibus.ERROR for details."));
+      show_message(_("[Rime] An error occurred!"),
+                   _("Read log '/tmp/rime.ibus.ERROR' for details."));
     }
     return;
   }
@@ -64,19 +78,21 @@ static void fill_traits(RimeTraits *traits) {
 }
 
 void ibus_rime_start(gboolean full_check) {
-  char user_data_dir[512] = {0};
-  get_ibus_rime_user_data_dir(user_data_dir);
-  if (!g_file_test(user_data_dir, G_FILE_TEST_IS_DIR)) {
-    g_mkdir_with_parents(user_data_dir, 0700);
-  }
-  RIME_STRUCT(RimeTraits, ibus_rime_traits);
-  fill_traits(&ibus_rime_traits);
-  ibus_rime_traits.user_data_dir = user_data_dir;
+  const char* user_data_dir = get_ibus_rime_user_data_dir();
 
-  rime_api->initialize(&ibus_rime_traits);
-  if (rime_api->start_maintenance((Bool)full_check)) {
-    // update frontend config
-    rime_api->deploy_config_file("ibus_rime.yaml", "config_version");
+  if (strlen(user_data_dir) > 0) {
+    if (!g_file_test(user_data_dir, G_FILE_TEST_IS_DIR)) {
+      g_mkdir_with_parents(user_data_dir, 0700);
+    }
+    RIME_STRUCT(RimeTraits, ibus_rime_traits);
+    fill_traits(&ibus_rime_traits);
+    ibus_rime_traits.user_data_dir = user_data_dir;
+ 
+    rime_api->initialize(&ibus_rime_traits);
+    if (rime_api->start_maintenance((Bool)full_check)) {
+      // update frontend config
+      rime_api->deploy_config_file("ibus_rime.yaml", "config_version");
+    }
   }
 }
 

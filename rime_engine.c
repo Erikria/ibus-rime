@@ -114,36 +114,36 @@ ibus_rime_engine_init (IBusRimeEngine *rime_engine)
   IBusProperty* prop;
   IBusText* label;
   IBusText* tips;
-  label = ibus_text_new_from_static_string("中文");
-  tips = ibus_text_new_from_static_string("中 ↔ A");
+  label = ibus_text_new_from_static_string("ㄓ");
+  tips = ibus_text_new_from_static_string("ㄓ ⇌ ㄭ");
   prop = ibus_property_new("InputMode",
                            PROP_TYPE_NORMAL,
                            label,
-                           IBUS_RIME_ICONS_DIR "/zh.png",
+                           IBUS_RIME_ICONS_DIR "/non-ascii.svg",
                            tips,
                            TRUE,
                            TRUE,
                            PROP_STATE_UNCHECKED,
                            NULL);
   ibus_prop_list_append(rime_engine->props, prop);
-  label = ibus_text_new_from_static_string("部署");
-  tips = ibus_text_new_from_static_string(_("Deploy"));
+  label = ibus_text_new_from_static_string("Reload");
+  tips = ibus_text_new_from_static_string(_("Reload"));
   prop = ibus_property_new("deploy",
                            PROP_TYPE_NORMAL,
                            label,
-                           IBUS_RIME_ICONS_DIR "/reload.png",
+                           IBUS_RIME_ICONS_DIR "/reload.svg",
                            tips,
                            TRUE,
                            TRUE,
                            PROP_STATE_UNCHECKED,
                            NULL);
   ibus_prop_list_append(rime_engine->props, prop);
-  label = ibus_text_new_from_static_string("同步");
-  tips = ibus_text_new_from_static_string(_("Sync data"));
+  label = ibus_text_new_from_static_string("Synchronize");
+  tips = ibus_text_new_from_static_string(_("Synchronize"));
   prop = ibus_property_new("sync",
                            PROP_TYPE_NORMAL,
                            label,
-                           IBUS_RIME_ICONS_DIR "/sync.png",
+                           IBUS_RIME_ICONS_DIR "/sync.svg",
                            tips,
                            TRUE,
                            TRUE,
@@ -241,32 +241,29 @@ static void ibus_rime_update_status(IBusRimeEngine *rime_engine,
   IBusProperty* prop = ibus_prop_list_get(rime_engine->props, 0);
   const gchar* icon;
   IBusText* label;
+  IBusText* symbol = ibus_text_new_from_static_string("ㄭ");
+
   if (prop) {
     if (!status || status->is_disabled) {
-      icon = IBUS_RIME_ICONS_DIR "/disabled.png";
-      label = ibus_text_new_from_static_string("維護");
-    }
-    else if (status->is_ascii_mode) {
-      icon = IBUS_RIME_ICONS_DIR "/abc.png";
-      label = ibus_text_new_from_static_string("Abc");
-    }
-    else {
-      icon = IBUS_RIME_ICONS_DIR "/zh.png";
+      icon = IBUS_RIME_ICONS_DIR "/disabled.svg";
+      label = ibus_text_new_from_static_string("Loading...");
+    } else if (status->is_ascii_mode) {
+      icon = IBUS_RIME_ICONS_DIR "/ascii.svg";
+      label = ibus_text_new_from_static_string("ASCII");
+    } else {
+      icon = IBUS_RIME_ICONS_DIR "/non-ascii.svg";
       /* schema_name is ".default" in switcher */
-      if (status->schema_name && status->schema_name[0] != '.') {
+      if (status->schema_name) {
         label = ibus_text_new_from_string(status->schema_name);
-      }
-      else {
-        label = ibus_text_new_from_static_string("中文");
+        symbol = ibus_text_new_from_static_string("ㄓ");
+      } else {
+        label = ibus_text_new_from_static_string(".unknown");
       }
     }
-    if (status && !status->is_disabled && ibus_text_get_length(label) > 0) {
-      gunichar c = g_utf8_get_char(ibus_text_get_text(label));
-      IBusText* symbol = ibus_text_new_from_unichar(c);
-      ibus_property_set_symbol(prop, symbol);
-    }
+
     ibus_property_set_icon(prop, icon);
     ibus_property_set_label(prop, label);
+    ibus_property_set_symbol(prop, symbol);
     ibus_engine_update_property((IBusEngine *)rime_engine, prop);
   }
 }
