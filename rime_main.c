@@ -1,7 +1,6 @@
 // ibus-rime program entry
 
 #include "rime_config.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -23,145 +22,145 @@
 
 RimeApi *rime_api = NULL;
 
-static const char* get_ibus_rime_user_data_dir() {
-  const char* home = getenv("HOME");
-  const char* xdg_config_home = getenv("XDG_CONFIG_HOME");
+static const char* get_ibus_rime_user_data_dir(char *path) {
+	const char *home = getenv("HOME");
+	const char *rime_user_data_dir = getenv("RIME_DATA_DIR");
 
-  int max = 512;
+	if (rime_user_data_dir != NULL) {
+		strcpy(path, rime_user_data_dir);
+	} else {
+		strcpy(path, home);
+		strcat(path, "/.rime");
+	}
 
-  char path[max];
-  char* final_str = "ibus/rime";
-
-  if (xdg_config_home != NULL) {
-    snprintf(path, max, "%s/%s", xdg_config_home, final_str);
-  } else {
-    snprintf(path, max, "%s/%s/%s", home, ".config", final_str);
-  }
-
-  const char* data_dir = path;
-
-  return data_dir;
+	return path;
 }
 
-static void show_message(const char* summary, const char* details) {
-  NotifyNotification* notice = notify_notification_new(summary, details, NULL);
-  notify_notification_show(notice, NULL);
-  g_object_unref(notice);
+static void show_message(const char *summary, const char *details) {
+	NotifyNotification *notice = notify_notification_new(summary, details, NULL);
+	notify_notification_show(notice, NULL);
+	g_object_unref(notice);
 }
 
-static void notification_handler(void* context_object,
-                                 RimeSessionId session_id,
-                                 const char* message_type,
-                                 const char* message_value) {
-  if (!strcmp(message_type, "deploy")) {
-    if (!strcmp(message_value, "start")) {
-      show_message(_("[Rime] Loading..."), NULL);
-    }
-    else if (!strcmp(message_value, "success")) {
-      show_message(_("[Rime] Finished!"), NULL);
-      ibus_rime_load_settings();
-    }
-    else if (!strcmp(message_value, "failure")) {
-      show_message(_("[Rime] An error occurred!"),
-                   _("Read log '/tmp/rime.ibus.ERROR' for details."));
-    }
-    return;
-  }
+static void notification_handler(
+	void *context_object,
+	RimeSessionId session_id,
+	const char *message_type,
+	const char *message_value
+) {
+	if (!strcmp(message_type, "deploy")) {
+		if (!strcmp(message_value, "start")) {
+			show_message(_("[Rime] Loading..."), NULL);
+		} else if (!strcmp(message_value, "success")) {
+			show_message(_("[Rime] Finished!"), NULL);
+			ibus_rime_load_settings();
+		} else if (!strcmp(message_value, "failure")) {
+			show_message(
+				_("[Rime] An error occurred!"),
+				_("Read log '/tmp/rime.ibus.ERROR' for details.")
+			);
+		}
+
+		return;
+	}
 }
 
 static void fill_traits(RimeTraits *traits) {
-  traits->shared_data_dir = IBUS_RIME_SHARED_DATA_DIR;
-  traits->distribution_name = DISTRIBUTION_NAME;
-  traits->distribution_code_name = DISTRIBUTION_CODE_NAME;
-  traits->distribution_version = DISTRIBUTION_VERSION;
-  traits->app_name = "rime.ibus";
+	traits->shared_data_dir = IBUS_RIME_SHARED_DATA_DIR;
+	traits->distribution_name = DISTRIBUTION_NAME;
+	traits->distribution_code_name = DISTRIBUTION_CODE_NAME;
+	traits->distribution_version = DISTRIBUTION_VERSION;
+	traits->app_name = "rime.ibus";
 }
 
 void ibus_rime_start(gboolean full_check) {
-  const char* user_data_dir = get_ibus_rime_user_data_dir();
+	char user_data_dir[512] = {0};
+	get_ibus_rime_user_data_dir(user_data_dir);
 
-  if (strlen(user_data_dir) > 0) {
-    if (!g_file_test(user_data_dir, G_FILE_TEST_IS_DIR)) {
-      g_mkdir_with_parents(user_data_dir, 0700);
-    }
-    RIME_STRUCT(RimeTraits, ibus_rime_traits);
-    fill_traits(&ibus_rime_traits);
-    ibus_rime_traits.user_data_dir = user_data_dir;
- 
-    rime_api->initialize(&ibus_rime_traits);
-    if (rime_api->start_maintenance((Bool)full_check)) {
-      // update frontend config
-      rime_api->deploy_config_file("ibus_rime.yaml", "config_version");
-    }
-  }
+	if (! g_file_test(user_data_dir, G_FILE_TEST_IS_DIR)) {
+		g_mkdir_with_parents(user_data_dir, 0700);
+	}
+
+	RIME_STRUCT(RimeTraits, ibus_rime_traits);
+	fill_traits(&ibus_rime_traits);
+	ibus_rime_traits.user_data_dir = user_data_dir;
+
+	rime_api->initialize(&ibus_rime_traits);
+
+	if (rime_api->start_maintenance((Bool) full_check)) {
+		// update frontend config
+		rime_api->deploy_config_file("ibus_rime.yaml", "config_version");
+	}
 }
 
 void ibus_rime_stop() {
-  rime_api->finalize();
+	rime_api->finalize();
 }
 
 static void ibus_disconnect_cb(IBusBus *bus, gpointer user_data) {
-  g_debug("bus disconnected");
-  ibus_quit();
+	g_debug("bus disconnected");
+	ibus_quit();
 }
 
 static void rime_with_ibus() {
-  ibus_init();
-  IBusBus *bus = ibus_bus_new();
-  g_object_ref_sink(bus);
+	ibus_init();
+	IBusBus *bus = ibus_bus_new();
+	g_object_ref_sink(bus);
 
-  if (!ibus_bus_is_connected(bus)) {
-    g_warning("not connected to ibus");
-    exit(0);
-  }
+	if (! ibus_bus_is_connected(bus)) {
+		g_warning("not connected to ibus");
+		exit(0);
+	}
 
-  g_signal_connect(bus, "disconnected", G_CALLBACK(ibus_disconnect_cb), NULL);
+	g_signal_connect(bus, "disconnected", G_CALLBACK(ibus_disconnect_cb), NULL);
 
-  IBusFactory *factory = ibus_factory_new(ibus_bus_get_connection(bus));
-  g_object_ref_sink(factory);
+	IBusFactory *factory = ibus_factory_new(ibus_bus_get_connection(bus));
+	g_object_ref_sink(factory);
 
-  ibus_factory_add_engine(factory, "rime", IBUS_TYPE_RIME_ENGINE);
-  if (!ibus_bus_request_name(bus, "im.rime.Rime", 0)) {
-    g_error("error requesting bus name");
-    exit(1);
-  }
+	ibus_factory_add_engine(factory, "rime", IBUS_TYPE_RIME_ENGINE);
+	if (! ibus_bus_request_name(bus, "im.rime.Rime", 0)) {
+		g_error("error requesting bus name");
+		exit(1);
+	}
 
-  if (!notify_init("ibus-rime")) {
-    g_error("notify_init failed");
-    exit(1);
-  }
-  rime_api->set_notification_handler(notification_handler, NULL);
+	if (! notify_init("ibus-rime")) {
+		g_error("notify_init failed");
+		exit(1);
+	}
 
-  RIME_STRUCT(RimeTraits, ibus_rime_traits);
-  fill_traits(&ibus_rime_traits);
-  rime_api->setup(&ibus_rime_traits);
+	rime_api->set_notification_handler(notification_handler, NULL);
 
-  gboolean full_check = FALSE;
-  ibus_rime_start(full_check);
-  ibus_rime_load_settings();
+	RIME_STRUCT(RimeTraits, ibus_rime_traits);
+	fill_traits(&ibus_rime_traits);
+	rime_api->setup(&ibus_rime_traits);
 
-  ibus_main();
+	gboolean full_check = FALSE;
+	ibus_rime_start(full_check);
+	ibus_rime_load_settings();
 
-  ibus_rime_stop();
-  notify_uninit();
+	ibus_main();
 
-  g_object_unref(factory);
-  g_object_unref(bus);
+	ibus_rime_stop();
+	notify_uninit();
+
+	g_object_unref(factory);
+	g_object_unref(bus);
 }
 
 static void sigterm_cb(int sig) {
-  if (rime_api) {
-    ibus_rime_stop();
-  }
-  notify_uninit();
-  exit(EXIT_FAILURE);
+	if (rime_api) {
+		ibus_rime_stop();
+	}
+
+	notify_uninit();
+	exit(EXIT_FAILURE);
 }
 
-int main(gint argc, gchar** argv) {
-  signal(SIGTERM, sigterm_cb);
-  signal(SIGINT, sigterm_cb);
+int main(gint argc, gchar **argv) {
+	signal(SIGTERM, sigterm_cb);
+	signal(SIGINT, sigterm_cb);
 
-  rime_api = rime_get_api();
-  rime_with_ibus();
-  return 0;
+	rime_api = rime_get_api();
+	rime_with_ibus();
+	return 0;
 }

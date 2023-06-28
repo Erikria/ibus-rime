@@ -3,8 +3,7 @@
 
 #include <ibus.h>
 
-#define IBUS_TYPE_RIME_ENGINE \
-        (ibus_rime_engine_get_type())
+#define IBUS_TYPE_RIME_ENGINE (ibus_rime_engine_get_type())
 
 GType ibus_rime_engine_get_type();
 
